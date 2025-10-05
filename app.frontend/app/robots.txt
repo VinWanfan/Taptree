@@ -1,0 +1,7 @@
+User-Agent: *
+Allow: /
+Disallow: /api/
+Disallow: /_next
+
+
+Sitemap: https://lin.ky/sitemap.xml

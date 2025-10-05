@@ -1,0 +1,293 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider     = "postgresql"
+  url          = env("DATABASE_URL")
+  directUrl    = env("DIRECT_URL")
+  relationMode = "prisma"
+}
+
+model Account {
+  id                    String    @id @default(uuid())
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?   @db.Text
+  refreshToken          String?   @db.Text
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?   @db.Text
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id @default(uuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Session {
+  id                   String   @id @default(uuid())
+  userId               String
+  token                String   @unique
+  expiresAt            DateTime
+  ipAddress            String?
+  userAgent            String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  activeOrganizationId String?
+  impersonatedBy       String?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, token])
+}
+
+model User {
+  id                   String                @id @default(uuid())
+  name                 String?
+  email                String?               @unique
+  emailVerified        Boolean               @default(false)
+  image                String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  role                 String?
+  banned               Boolean?
+  banReason            String?
+  banExpires           Int?
+  stripeCustomerId     String?
+  metadata             Json?
+  verificationRequests VerificationRequest[]
+  sessions             Session[]
+  invitations          Invitation[]
+  memberships          Member[]
+  accounts             Account[]
+  themesCreated        Theme[]
+  UserFlag             UserFlag[]
+
+  @@index([email])
+}
+
+model Organization {
+  id           String        @id @default(uuid())
+  name         String
+  slug         String        @unique
+  logo         String?
+  metadata     String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  integrations Integration[]
+  themes       Theme[]
+  pages        Page[]
+  invitations  Invitation[]
+  members      Member[]
+  isPersonal   Boolean       @default(true)
+  subscription Subscription?
+
+  @@index([slug])
+}
+
+model Invitation {
+  id             String       @id @default(uuid())
+  email          String
+  inviterId      String
+  inviter        User         @relation(fields: [inviterId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  role           String
+  status         String
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([inviterId])
+}
+
+model Member {
+  id             String       @id @default(uuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  role           String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([userId])
+}
+
+model Subscription {
+  id                   String        @id @default(uuid())
+  plan                 String
+  referenceId          String        @unique
+  stripeCustomerId     String
+  stripeSubscriptionId String?
+  status               String
+  periodStart          DateTime?
+  periodEnd            DateTime?
+  cancelAtPeriodEnd    Boolean?
+  seats                Int?
+  trialStart           DateTime?
+  trialEnd             DateTime?
+  organization         Organization? @relation(fields: [referenceId], references: [id])
+
+  @@index([referenceId])
+}
+
+model Page {
+  id                   String                @id @default(uuid())
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  publishedAt          DateTime?
+  deletedAt            DateTime?
+  slug                 String                @unique
+  config               Json
+  mobileConfig         Json?
+  blocks               Block[]
+  metaTitle            String?
+  metaDescription      String?
+  themeId              String?
+  theme                Theme?                @relation(fields: [themeId], references: [id])
+  backgroundImage      String?
+  customDomain         String?               @unique
+  verifiedAt           DateTime?
+  verificationRequests VerificationRequest[]
+  orchestrations       Orchestration[]
+  isFeatured           Boolean               @default(false)
+  organization         Organization?         @relation(fields: [organizationId], references: [id])
+  organizationId       String?
+
+  @@index([organizationId])
+  @@index([themeId])
+}
+
+model Block {
+  id            String       @id @default(uuid())
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  page          Page         @relation(fields: [pageId], references: [id])
+  pageId        String
+  type          String
+  config        Json
+  data          Json
+  integration   Integration? @relation(fields: [integrationId], references: [id])
+  integrationId String?
+
+  @@index([pageId])
+  @@index([integrationId])
+}
+
+model Integration {
+  id              String        @id @default(uuid())
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  type            String
+  displayName     String?
+  encryptedConfig String?
+  deletedAt       DateTime?
+  blocks          Block[]
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+  organizationId  String?
+
+  @@index([type])
+  @@index([organizationId])
+}
+
+model Theme {
+  id                  String        @id @default(uuid())
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  name                String        @default("")
+  isDefault           Boolean       @default(false)
+  createdById         String
+  createdBy           User          @relation(fields: [createdById], references: [id])
+  colorBgBase         Json?
+  colorBgPrimary      Json?
+  colorBgSecondary    Json?
+  colorBorderPrimary  Json?
+  colorTitlePrimary   Json?
+  colorTitleSecondary Json?
+  colorLabelPrimary   Json?
+  colorLabelSecondary Json?
+  colorLabelTertiary  Json?
+  font                String?
+  backgroundImage     String?
+  pages               Page[]
+  organization        Organization? @relation(fields: [organizationId], references: [id])
+  organizationId      String?
+
+  @@index([createdById])
+  @@index([organizationId])
+}
+
+enum VerificationRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model VerificationRequest {
+  id                 String                    @id @default(uuid())
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+  pageId             String
+  page               Page                      @relation(fields: [pageId], references: [id])
+  status             VerificationRequestStatus @default(PENDING)
+  requestedByUserId  String
+  requestedBy        User                      @relation(fields: [requestedByUserId], references: [id])
+  rejectedReason     String?
+  verifiedAt         DateTime?
+  rejectedAt         DateTime?
+  requestedPageTitle String
+
+  @@index([requestedByUserId])
+  @@index([pageId])
+}
+
+enum OrchestrationType {
+  TIKTOK
+}
+
+model Orchestration {
+  id              String            @id @default(uuid())
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  expiresAt       DateTime
+  pageGeneratedAt DateTime?
+  pageId          String?
+  page            Page?             @relation(fields: [pageId], references: [id])
+  type            OrchestrationType
+
+  @@index([pageId])
+}
+
+model UserFlag {
+  id        String   @id @default(uuid())
+  userId    String
+  key       String
+  value     Boolean
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}

@@ -1,0 +1,22 @@
+{
+  "name": "@trylinky/tinybird",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "build:tracker": "tsup browser/tracker.ts --format esm --minify --target es2017",
+    "dev": "tsup browser/tracker.ts --format esm --watch",
+    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist"
+  },
+  "main": "./dist/tracker.js",
+  "module": "./dist/tracker.js",
+  "types": "./dist/tracker.d.ts",
+  "files": [
+    "dist/**"
+  ],
+  "devDependencies": {
+    "@types/node": "^20.11.16",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3"
+  }
+}
